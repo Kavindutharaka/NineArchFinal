@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en" ng-app="nineArchApp">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>9 Arch Travels - Tour Package Builder</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body ng-controller="MainController" ng-cloak>
+
+    <!-- ===== HEADER ===== -->
+    <header class="app-header">
+        <div class="header-inner">
+            <div class="brand">
+                <div class="brand-icon"><i class="fas fa-train"></i></div>
+                <div>
+                    <h1>9 Arch Travels</h1>
+                    <p>Tour Package Builder</p>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ===== NAVIGATION ===== -->
+    <nav class="nav-tabs-container">
+        <div class="nav-tabs-inner">
+            <button ng-click="activeTab='generate'" ng-class="{'active':activeTab==='generate'}" class="nav-tab">
+                <i class="fas fa-magic"></i> Generate Tour
+            </button>
+            <button ng-click="activeTab='hotels'" ng-class="{'active':activeTab==='hotels'}" class="nav-tab">
+                <i class="fas fa-hotel"></i> Hotels
+            </button>
+            <button ng-click="activeTab='vehicles'" ng-class="{'active':activeTab==='vehicles'}" class="nav-tab">
+                <i class="fas fa-van-shuttle"></i> Vehicles
+            </button>
+            <button ng-click="activeTab='locations'" ng-class="{'active':activeTab==='locations'}" class="nav-tab">
+                <i class="fas fa-map-marked-alt"></i> Locations
+            </button>
+        </div>
+    </nav>
+
+    <!-- ===== MAIN CONTENT ===== -->
+    <main class="main-content">
+
+        <!-- ============================================ -->
+        <!-- GENERATE TOUR TAB -->
+        <!-- ============================================ -->
+        <div ng-show="activeTab==='generate'" class="animate-fade-up">
+            <div class="layout-2col">
+                <!-- LEFT PANEL -->
+                <div>
+                    <!-- Client & Tour Details -->
+                    <div class="card" style="margin-bottom:20px;">
+                        <div class="card-header">
+                            <h2><i class="fas fa-user-tie"></i> Client & Tour Details</h2>
+                        </div>
+                        <div class="card-body">
+                            <div class="grid-2">
+                                <div class="form-group">
+                                    <label>Client Name *</label>
+                                    <input type="text" class="form-control" ng-model="tourData.clientName" placeholder="e.g., Mr. Vijay Kumar">
+                                </div>
+                                <div class="form-group">
+                                    <label>Tour Title</label>
+                                    <input type="text" class="form-control" ng-model="tourData.tourTitle" placeholder="e.g., Hill Country & City Charms">
+                                </div>
+                            </div>
+                            <div class="grid-4">
+                                <div class="form-group">
+                                    <label>Arrival Date</label>
+                                    <input type="date" class="form-control" ng-model="tourData.arrivalDate" ng-change="calculateDuration()">
+                                </div>
+                                <div class="form-group">
+                                    <label>Departure Date</label>
+                                    <input type="date" class="form-control" ng-model="tourData.departureDate" ng-change="calculateDuration()">
+                                </div>
+                                <div class="form-group">
+                                    <label>Hotel Category</label>
+                                    <select class="form-control" ng-model="tourData.hotelCategory">
+                                        <option>3 Star</option><option>4 Star</option><option>5 Star</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Meal Plan</label>
+                                    <select class="form-control" ng-model="tourData.mealPlan">
+                                        <option value="BB">BB (Bed & Breakfast)</option>
+                                        <option value="HB">HB (Half Board)</option>
+                                        <option value="FB">FB (Full Board)</option>
+                                        <option value="AI">AI (All Inclusive)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div ng-show="tourData.totalDays > 0" class="duration-display">
+                                <i class="fas fa-calendar-days"></i>
+                                {{tourData.totalDays}} Days / {{tourData.numberOfNights}} Nights
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Daily Itinerary -->
+                    <div class="card" style="margin-bottom:20px;">
+                        <div class="card-header">
+                            <h2><i class="fas fa-route"></i> Daily Itinerary</h2>
+                            <button class="btn btn-primary btn-sm" ng-click="addDay()">
+                                <i class="fas fa-plus"></i> Add Day
+                            </button>
+                        </div>
+                        <div class="card-body" style="padding:0;">
+                            <div ng-if="tourData.days.length === 0" class="empty-state" style="padding:40px;">
+                                <i class="fas fa-route"></i>
+                                <p>Click "Add Day" to start building the itinerary</p>
+                            </div>
+
+                            <div ng-repeat="day in tourData.days" class="day-item" style="animation-delay:{{$index * 0.1}}s">
+                                <div class="day-item-header">
+                                    <div class="day-badge">
+                                        <i class="fas fa-circle-dot"></i>
+                                        Day {{day.dayNumber}}
+                                        <span ng-if="day.dayNumber===1" style="opacity:0.8;font-weight:400;font-size:0.8rem;"> - Arrival</span>
+                                        <span ng-if="day.dayNumber===tourData.totalDays && tourData.totalDays > 1" style="opacity:0.8;font-weight:400;font-size:0.8rem;"> - Departure</span>
+                                    </div>
+                                    <div class="day-actions">
+                                        <button class="btn-icon" ng-click="moveDay($index,-1)" ng-disabled="$index===0" title="Move Up">
+                                            <i class="fas fa-arrow-up"></i>
+                                        </button>
+                                        <button class="btn-icon" ng-click="moveDay($index,1)" ng-disabled="$index===tourData.days.length-1" title="Move Down">
+                                            <i class="fas fa-arrow-down"></i>
+                                        </button>
+                                        <button class="btn-icon" ng-click="removeDay($index)" title="Remove" style="background:rgba(220,53,69,0.3);">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="day-item-body">
+                                    <div class="grid-2">
+                                        <div class="form-group">
+                                            <label>Route / Activity Template</label>
+                                            <select class="form-control" ng-model="day.itineraryTemplateId" ng-change="onItinerarySelected(day)">
+                                                <option value="">-- Select a route --</option>
+                                                <option ng-repeat="t in itineraryTemplates" value="{{t.id}}">{{t.routeName}}</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Stay Hotel</label>
+                                            <select class="form-control" ng-model="day.hotelId" ng-change="onHotelSelected(day)">
+                                                <option value="">-- Select hotel --</option>
+                                                <option ng-repeat="h in hotels" value="{{h.id}}">{{h.name}} ({{h.location}})</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="grid-2">
+                                        <div class="form-group">
+                                            <label>Description</label>
+                                            <textarea class="form-control" rows="4" ng-model="day.itineraryDescription" placeholder="Activity details..."></textarea>
+                                        </div>
+                                        <div>
+                                            <div class="form-group">
+                                                <label>Visited Locations (for images)</label>
+                                                <div style="display:flex;gap:8px;">
+                                                    <select class="form-control" ng-model="day.selectedLocationForDay" style="flex:1;">
+                                                        <option value="">Add location...</option>
+                                                        <option ng-repeat="l in locations" value="{{l.name}}">{{l.name}}</option>
+                                                    </select>
+                                                    <button class="btn btn-primary btn-sm" ng-click="addLocationToDay(day)" ng-disabled="!day.selectedLocationForDay">
+                                                        <i class="fas fa-plus"></i>
+                                                    </button>
+                                                </div>
+                                                <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
+                                                    <span ng-repeat="loc in day.visitedLocations" class="tag">
+                                                        {{loc}}
+                                                        <span class="remove" ng-click="removeLocationFromDay(day,$index)"><i class="fas fa-times"></i></span>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div class="grid-2">
+                                                <div class="form-group">
+                                                    <label>Highlights</label>
+                                                    <input type="text" class="form-control" ng-model="day.highlights" placeholder="Key highlights">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label>Meals</label>
+                                                    <input type="text" class="form-control" ng-model="day.meals" placeholder="e.g., Breakfast included">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Inclusions & Exclusions -->
+                    <div class="card" style="margin-bottom:20px;">
+                        <div class="card-header">
+                            <h2><i class="fas fa-list-check"></i> Inclusions & Exclusions</h2>
+                        </div>
+                        <div class="card-body">
+                            <div class="grid-2">
+                                <div>
+                                    <h3 style="color:var(--success);font-size:0.95rem;margin-bottom:10px;">
+                                        <i class="fas fa-check-circle"></i> Inclusions
+                                    </h3>
+                                    <ul class="list-editable">
+                                        <li ng-repeat="item in inclusions">
+                                            <span>{{item}}</span>
+                                            <button class="btn-icon btn-sm" style="color:var(--danger);background:none;border:none;cursor:pointer;" ng-click="removeInclusion($index)">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </li>
+                                    </ul>
+                                    <div class="list-add">
+                                        <input type="text" class="form-control" ng-model="newInclusion" placeholder="Add inclusion..." ng-keypress="$event.keyCode===13 && addInclusion()">
+                                        <button class="btn btn-success btn-sm" ng-click="addInclusion()"><i class="fas fa-plus"></i></button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <h3 style="color:var(--danger);font-size:0.95rem;margin-bottom:10px;">
+                                        <i class="fas fa-times-circle"></i> Exclusions
+                                    </h3>
+                                    <ul class="list-editable">
+                                        <li ng-repeat="item in exclusions">
+                                            <span>{{item}}</span>
+                                            <button class="btn-icon btn-sm" style="color:var(--danger);background:none;border:none;cursor:pointer;" ng-click="removeExclusion($index)">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </li>
+                                    </ul>
+                                    <div class="list-add">
+                                        <input type="text" class="form-control" ng-model="newExclusion" placeholder="Add exclusion..." ng-keypress="$event.keyCode===13 && addExclusion()">
+                                        <button class="btn btn-danger btn-sm" ng-click="addExclusion()"><i class="fas fa-plus"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Package Options -->
+                    <div class="card" style="margin-bottom:20px;">
+                        <div class="card-header">
+                            <h2><i class="fas fa-layer-group"></i> Package Options</h2>
+                        </div>
+                        <div class="card-body">
+                            <div class="info-box">
+                                <i class="fas fa-info-circle"></i>
+                                Option 1 prints on its own PDF page. Option 2 on the next page (only if hotels added).
+                            </div>
+                            <div class="option-section">
+                                <!-- Option 1 -->
+                                <div class="option-card option-1">
+                                    <div class="option-card-header">
+                                        <i class="fas fa-bookmark"></i>
+                                        <span>Option 1</span>
+                                        <span style="margin-left:auto;opacity:0.8;font-size:0.8rem;">{{option1.hotels.length}} hotel(s)</span>
+                                    </div>
+                                    <div class="option-card-body">
+                                        <div class="form-group">
+                                            <label>Title</label>
+                                            <input type="text" class="form-control" ng-model="option1.title" placeholder="e.g. 5 Star Luxury Package">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Cost ({{tourData.currencyCode}})</label>
+                                            <input type="number" class="form-control" ng-model="option1.cost" min="0" step="0.01" placeholder="0.00">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Add Hotels</label>
+                                            <div style="display:flex;gap:8px;">
+                                                <select class="form-control" ng-model="selectedHotelForOpt1" style="flex:1;">
+                                                    <option value="">-- Select --</option>
+                                                    <option ng-repeat="h in hotels" value="{{h.id}}">{{h.name}} ({{h.location}})</option>
+                                                </select>
+                                                <button class="btn btn-primary btn-sm" ng-click="addHotelToOption(option1,selectedHotelForOpt1);selectedHotelForOpt1=null" ng-disabled="!selectedHotelForOpt1">
+                                                    <i class="fas fa-plus"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div ng-repeat="h in option1.hotels" class="option-hotel-item">
+                                            <div>
+                                                <strong style="font-size:0.85rem;">{{h.hotelName}}</strong>
+                                                <div style="font-size:0.75rem;color:var(--text-light);">{{h.hotelStarRating}} - {{h.hotelLocation}}</div>
+                                            </div>
+                                            <button style="background:none;border:none;color:var(--danger);cursor:pointer;" ng-click="removeHotelFromOption(option1,$index)">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </div>
+                                        <div ng-if="option1.hotels.length===0" style="color:var(--text-light);font-size:0.82rem;padding:8px 0;">
+                                            <i class="fas fa-exclamation-circle"></i> No hotels added.
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Option 2 -->
+                                <div class="option-card option-2">
+                                    <div class="option-card-header">
+                                        <i class="fas fa-bookmark"></i>
+                                        <span>Option 2</span>
+                                        <span style="margin-left:8px;font-size:0.75rem;opacity:0.7;font-weight:400;">(optional)</span>
+                                        <span style="margin-left:auto;opacity:0.8;font-size:0.8rem;">{{option2.hotels.length}} hotel(s)</span>
+                                    </div>
+                                    <div class="option-card-body">
+                                        <div class="form-group">
+                                            <label>Title</label>
+                                            <input type="text" class="form-control" ng-model="option2.title" placeholder="e.g. 4 Star Standard Package">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Cost ({{tourData.currencyCode}})</label>
+                                            <input type="number" class="form-control" ng-model="option2.cost" min="0" step="0.01" placeholder="0.00">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Add Hotels</label>
+                                            <div style="display:flex;gap:8px;">
+                                                <select class="form-control" ng-model="selectedHotelForOpt2" style="flex:1;">
+                                                    <option value="">-- Select --</option>
+                                                    <option ng-repeat="h in hotels" value="{{h.id}}">{{h.name}} ({{h.location}})</option>
+                                                </select>
+                                                <button class="btn btn-ghost btn-sm" ng-click="addHotelToOption(option2,selectedHotelForOpt2);selectedHotelForOpt2=null" ng-disabled="!selectedHotelForOpt2">
+                                                    <i class="fas fa-plus"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div ng-repeat="h in option2.hotels" class="option-hotel-item">
+                                            <div>
+                                                <strong style="font-size:0.85rem;">{{h.hotelName}}</strong>
+                                                <div style="font-size:0.75rem;color:var(--text-light);">{{h.hotelStarRating}} - {{h.hotelLocation}}</div>
+                                            </div>
+                                            <button style="background:none;border:none;color:var(--danger);cursor:pointer;" ng-click="removeHotelFromOption(option2,$index)">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </div>
+                                        <div ng-if="option2.hotels.length===0" style="color:var(--text-light);font-size:0.82rem;padding:8px 0;">
+                                            <i class="fas fa-info-circle"></i> Leave empty to exclude from PDF.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RIGHT SIDEBAR -->
+                <div>
+                    <div class="sticky-sidebar">
+                        <!-- Vehicle Selection -->
+                        <div class="card" style="margin-bottom:20px;">
+                            <div class="card-header">
+                                <h2><i class="fas fa-van-shuttle"></i> Vehicle</h2>
+                            </div>
+                            <div class="card-body">
+                                <select class="form-control" ng-model="tourData.selectedVehicleId" style="margin-bottom:12px;">
+                                    <option value="">-- Select vehicle --</option>
+                                    <option ng-repeat="v in vehicles" value="{{v.id}}">{{v.model}} (Seats: {{v.seating}})</option>
+                                </select>
+                                <div ng-if="getSelectedVehicle()" style="font-size:0.87rem;">
+                                    <div style="display:flex;justify-content:space-between;padding:4px 0;"><span style="color:var(--text-light);">Model:</span><strong>{{getSelectedVehicle().model}}</strong></div>
+                                    <div style="display:flex;justify-content:space-between;padding:4px 0;"><span style="color:var(--text-light);">Capacity:</span><strong>{{getSelectedVehicle().seating}} passengers</strong></div>
+                                    <div style="display:flex;justify-content:space-between;padding:4px 0;"><span style="color:var(--text-light);">Luggage:</span><strong>{{getSelectedVehicle().luggage}} bags</strong></div>
+                                    <div style="display:flex;justify-content:space-between;padding:4px 0;"><span style="color:var(--text-light);">AC:</span><strong>{{getSelectedVehicle().airCon}}</strong></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Pricing -->
+                        <div class="card" style="margin-bottom:20px;">
+                            <div class="card-header">
+                                <h2><i class="fas fa-dollar-sign"></i> Pricing</h2>
+                            </div>
+                            <div class="card-body">
+                                <div class="grid-2">
+                                    <div class="form-group">
+                                        <label>Currency</label>
+                                        <select class="form-control" ng-model="tourData.currencyCode">
+                                            <option value="USD">USD</option>
+                                            <option value="LKR">LKR</option>
+                                            <option value="EUR">EUR</option>
+                                            <option value="GBP">GBP</option>
+                                            <option value="AUD">AUD</option>
+                                            <option value="INR">INR</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Total Cost</label>
+                                        <input type="number" class="form-control" ng-model="tourData.totalCost" min="0" step="0.01" placeholder="0.00">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Summary & Generate -->
+                        <div class="summary-card">
+                            <div class="card-header">
+                                <h2><i class="fas fa-file-pdf"></i> Summary</h2>
+                            </div>
+                            <div class="card-body">
+                                <div class="summary-row" ng-if="tourData.clientName">
+                                    <i class="fas fa-user"></i> <span>{{tourData.clientName}}</span>
+                                </div>
+                                <div class="summary-row">
+                                    <i class="fas fa-calendar"></i> <span>{{tourData.days.length}} days planned</span>
+                                </div>
+                                <div class="summary-row" ng-if="tourData.arrivalDate">
+                                    <i class="fas fa-plane-arrival"></i> <span>{{tourData.arrivalDate}}</span>
+                                </div>
+                                <div class="summary-row" ng-if="tourData.totalCost > 0">
+                                    <i class="fas fa-money-bill-wave"></i> <span>{{tourData.currencyCode}} {{tourData.totalCost | number:2}}</span>
+                                </div>
+                                <div class="summary-row" ng-if="option1.hotels.length > 0">
+                                    <i class="fas fa-layer-group"></i> <span>Option 1: {{option1.hotels.length}} hotels</span>
+                                </div>
+                                <div class="summary-row" ng-if="option2.hotels.length > 0">
+                                    <i class="fas fa-layer-group"></i> <span>Option 2: {{option2.hotels.length}} hotels</span>
+                                </div>
+
+                                <div class="alert-error" ng-if="generateError" style="background:rgba(220,53,69,0.15);border-color:rgba(220,53,69,0.3);color:#ff6b6b;margin-top:12px;">
+                                    <i class="fas fa-exclamation-circle"></i> {{generateError}}
+                                </div>
+
+                                <button class="generate-btn" ng-click="generatePdf()" ng-disabled="isGenerating">
+                                    <span ng-if="!isGenerating"><i class="fas fa-file-pdf"></i> Generate PDF</span>
+                                    <span ng-if="isGenerating"><span class="spinner"></span> Generating...</span>
+                                </button>
+                                <button class="generate-btn" ng-click="previewPdf()" style="margin-top:8px;background:rgba(255,255,255,0.15);color:white;font-size:0.85rem;padding:10px;">
+                                    <i class="fas fa-eye"></i> Preview HTML
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- HOTELS TAB -->
+        <!-- ============================================ -->
+        <div ng-show="activeTab==='hotels'" class="animate-fade-up">
+            <div class="card" style="margin-bottom:20px;">
+                <div class="card-header">
+                    <h2><i class="fas fa-hotel"></i> Manage Hotels</h2>
+                    <button class="btn btn-primary btn-sm" ng-click="showAddHotelForm=!showAddHotelForm">
+                        <i class="fas fa-plus"></i> Add Hotel
+                    </button>
+                </div>
+
+                <!-- Add/Edit Form -->
+                <div ng-show="showAddHotelForm" class="card-body" style="background:#f8fafc;border-bottom:1px solid var(--border);">
+                    <h3 style="font-size:1rem;font-weight:700;margin-bottom:16px;">
+                        {{editingHotelId ? 'Edit Hotel' : 'Add New Hotel'}}
+                    </h3>
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label>Hotel Name *</label>
+                            <input type="text" class="form-control" ng-model="newHotel.name" placeholder="e.g., The Golden Crown Hotel">
+                        </div>
+                        <div class="form-group">
+                            <label>Star Rating</label>
+                            <select class="form-control" ng-model="newHotel.starRating">
+                                <option value="">Select</option>
+                                <option value="3 Star">3 Star</option>
+                                <option value="4 Star">4 Star</option>
+                                <option value="5 Star">5 Star</option>
+                                <option value="Boutique">Boutique</option>
+                                <option value="Resort">Resort</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Food Options</label>
+                            <select class="form-control" ng-model="newHotel.foodOptions">
+                                <option value="">Select</option>
+                                <option value="BB">BB (Bed & Breakfast)</option>
+                                <option value="HB">HB (Half Board)</option>
+                                <option value="FB">FB (Full Board)</option>
+                                <option value="AI">AI (All Inclusive)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Location</label>
+                            <select class="form-control" ng-model="newHotel.location">
+                                <option value="">Select Location</option>
+                                <option ng-repeat="l in locations" value="{{l.name}}">{{l.name}}</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea class="form-control" ng-model="newHotel.description" rows="3" placeholder="Hotel description..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Hotel Images</label>
+                        <div class="image-upload-zone">
+                            <input type="file" multiple accept="image/*" onchange="angular.element(this).scope().handleImageUpload(event, 'hotel')">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <p>Drop images or click to upload</p>
+                        </div>
+                        <div class="image-preview-grid">
+                            <div ng-repeat="img in newHotel.images" class="image-preview-item animate-fade-in">
+                                <img ng-src="{{img}}">
+                                <button class="remove-btn" ng-click="removeImage('hotel',$index)"><i class="fas fa-times"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:10px;">
+                        <button class="btn btn-success" ng-click="saveHotel()">
+                            <i class="fas fa-save"></i> {{editingHotelId ? 'Update' : 'Save'}} Hotel
+                        </button>
+                        <button class="btn btn-ghost" ng-click="cancelHotelEdit()">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hotels Grid -->
+            <div class="item-grid">
+                <div ng-repeat="hotel in hotels" class="item-card" style="animation-delay:{{$index * 0.1}}s">
+                    <div class="item-card-image">
+                        <img ng-if="hotel.images.length > 0" ng-src="{{hotel.images[0]}}">
+                        <div ng-if="hotel.images.length === 0" class="placeholder-icon"><i class="fas fa-hotel"></i></div>
+                        <span ng-if="hotel.images.length > 1" class="image-count"><i class="fas fa-images"></i> {{hotel.images.length}}</span>
+                    </div>
+                    <div class="item-card-body">
+                        <h3>{{hotel.name}}</h3>
+                        <div class="meta">
+                            <span><i class="fas fa-star" style="color:var(--warning);"></i> {{hotel.starRating}}</span>
+                            <span><i class="fas fa-utensils" style="color:var(--success);"></i> {{hotel.foodOptions}}</span>
+                            <span><i class="fas fa-map-marker-alt" style="color:var(--danger);"></i> {{hotel.location}}</span>
+                        </div>
+                        <div class="item-card-actions">
+                            <button class="btn btn-primary btn-sm" ng-click="editHotel(hotel)"><i class="fas fa-edit"></i> Edit</button>
+                            <button class="btn btn-danger btn-sm" ng-click="deleteHotel(hotel)"><i class="fas fa-trash"></i> Delete</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div ng-if="hotels.length === 0" class="empty-state">
+                <i class="fas fa-hotel"></i>
+                <p>No hotels added yet. Click "Add Hotel" to get started.</p>
+            </div>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- VEHICLES TAB -->
+        <!-- ============================================ -->
+        <div ng-show="activeTab==='vehicles'" class="animate-fade-up">
+            <div class="card" style="margin-bottom:20px;">
+                <div class="card-header">
+                    <h2><i class="fas fa-van-shuttle"></i> Manage Vehicles</h2>
+                    <button class="btn btn-primary btn-sm" ng-click="showAddVehicleForm=!showAddVehicleForm">
+                        <i class="fas fa-plus"></i> Add Vehicle
+                    </button>
+                </div>
+
+                <div ng-show="showAddVehicleForm" class="card-body" style="background:#f8fafc;border-bottom:1px solid var(--border);">
+                    <h3 style="font-size:1rem;font-weight:700;margin-bottom:16px;">
+                        {{editingVehicleId ? 'Edit Vehicle' : 'Add New Vehicle'}}
+                    </h3>
+                    <div class="grid-4">
+                        <div class="form-group">
+                            <label>Model *</label>
+                            <input type="text" class="form-control" ng-model="newVehicle.model" placeholder="e.g., KDH High Roof">
+                        </div>
+                        <div class="form-group">
+                            <label>Seating Capacity</label>
+                            <input type="number" class="form-control" ng-model="newVehicle.seating" min="1" placeholder="9">
+                        </div>
+                        <div class="form-group">
+                            <label>Luggage Space</label>
+                            <input type="number" class="form-control" ng-model="newVehicle.luggage" min="1" placeholder="10">
+                        </div>
+                        <div class="form-group">
+                            <label>Air Conditioning</label>
+                            <select class="form-control" ng-model="newVehicle.airCon">
+                                <option value="Yes">Yes</option>
+                                <option value="No">No</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:10px;">
+                        <button class="btn btn-success" ng-click="saveVehicle()">
+                            <i class="fas fa-save"></i> {{editingVehicleId ? 'Update' : 'Save'}} Vehicle
+                        </button>
+                        <button class="btn btn-ghost" ng-click="cancelVehicleEdit()">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="item-grid">
+                <div ng-repeat="v in vehicles" class="item-card" style="animation-delay:{{$index * 0.1}}s">
+                    <div class="item-card-image" style="height:140px;background:linear-gradient(135deg,#e0ecff,#f0f4f8);">
+                        <div class="placeholder-icon"><i class="fas fa-van-shuttle"></i></div>
+                    </div>
+                    <div class="item-card-body">
+                        <h3>{{v.model}}</h3>
+                        <div class="meta">
+                            <span><i class="fas fa-users" style="color:var(--primary);"></i> Capacity: {{v.seating}}</span>
+                            <span><i class="fas fa-suitcase" style="color:#9b59b6;"></i> Luggage: {{v.luggage}}</span>
+                            <span><i class="fas fa-snowflake" style="color:#00bcd4;"></i> AC: {{v.airCon}}</span>
+                        </div>
+                        <div class="item-card-actions">
+                            <button class="btn btn-primary btn-sm" ng-click="editVehicle(v)"><i class="fas fa-edit"></i> Edit</button>
+                            <button class="btn btn-danger btn-sm" ng-click="deleteVehicle(v)"><i class="fas fa-trash"></i> Delete</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div ng-if="vehicles.length === 0" class="empty-state">
+                <i class="fas fa-van-shuttle"></i>
+                <p>No vehicles added yet.</p>
+            </div>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- LOCATIONS TAB -->
+        <!-- ============================================ -->
+        <div ng-show="activeTab==='locations'" class="animate-fade-up">
+            <div class="card" style="margin-bottom:20px;">
+                <div class="card-header">
+                    <h2><i class="fas fa-map-marked-alt"></i> Manage Locations</h2>
+                    <button class="btn btn-primary btn-sm" ng-click="showAddLocationForm=!showAddLocationForm">
+                        <i class="fas fa-plus"></i> Add Location
+                    </button>
+                </div>
+
+                <div ng-show="showAddLocationForm" class="card-body" style="background:#f8fafc;border-bottom:1px solid var(--border);">
+                    <h3 style="font-size:1rem;font-weight:700;margin-bottom:16px;">
+                        {{editingLocationId ? 'Edit Location' : 'Add New Location'}}
+                    </h3>
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label>Location Name *</label>
+                            <input type="text" class="form-control" ng-model="newLocation.name" placeholder="e.g., Kandy">
+                        </div>
+                        <div class="form-group">
+                            <label>Description & Activities</label>
+                            <textarea class="form-control" ng-model="newLocation.description" rows="3" placeholder="Describe attractions, activities..."></textarea>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Location Images</label>
+                        <div class="image-upload-zone">
+                            <input type="file" multiple accept="image/*" onchange="angular.element(this).scope().handleImageUpload(event, 'location')">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <p>Drop images or click to upload (3 random will appear in PDF)</p>
+                        </div>
+                        <div class="image-preview-grid">
+                            <div ng-repeat="img in newLocation.images" class="image-preview-item animate-fade-in">
+                                <img ng-src="{{img}}">
+                                <button class="remove-btn" ng-click="removeImage('location',$index)"><i class="fas fa-times"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:10px;">
+                        <button class="btn btn-success" ng-click="saveLocation()">
+                            <i class="fas fa-save"></i> {{editingLocationId ? 'Update' : 'Save'}} Location
+                        </button>
+                        <button class="btn btn-ghost" ng-click="cancelLocationEdit()">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="item-grid">
+                <div ng-repeat="loc in locations" class="item-card" style="animation-delay:{{$index * 0.1}}s">
+                    <div class="item-card-image">
+                        <img ng-if="loc.images.length > 0" ng-src="{{loc.images[0]}}">
+                        <div ng-if="loc.images.length === 0" class="placeholder-icon"><i class="fas fa-mountain-sun"></i></div>
+                        <span ng-if="loc.images.length > 1" class="image-count"><i class="fas fa-images"></i> {{loc.images.length}}</span>
+                    </div>
+                    <div class="item-card-body">
+                        <h3><i class="fas fa-map-pin" style="color:var(--danger);margin-right:6px;font-size:0.85rem;"></i>{{loc.name}}</h3>
+                        <p style="font-size:0.82rem;color:var(--text-light);line-height:1.5;margin-bottom:12px;">{{loc.description}}</p>
+                        <div class="item-card-actions">
+                            <button class="btn btn-primary btn-sm" ng-click="editLocation(loc)"><i class="fas fa-edit"></i> Edit</button>
+                            <button class="btn btn-danger btn-sm" ng-click="deleteLocation(loc)"><i class="fas fa-trash"></i> Delete</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div ng-if="locations.length === 0" class="empty-state">
+                <i class="fas fa-map-marked-alt"></i>
+                <p>No locations added yet. Click "Add Location" to get started.</p>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- ===== FOOTER ===== -->
+    <footer class="app-footer">
+        <p>&copy; 2025 <strong>9 Arch Travels</strong>. All rights reserved.</p>
+        <p style="margin-top:4px;font-size:0.78rem;">Tour Package Management System</p>
+    </footer>
+
+    <!-- ===== SCRIPTS ===== -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.8.3/angular.min.js"></script>
+    <script src="app/app.js"></script>
+    <script src="app/mainController.js"></script>
+</body>
+</html>
