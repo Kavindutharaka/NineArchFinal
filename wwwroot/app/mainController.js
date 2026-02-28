@@ -5,9 +5,9 @@
         .module('nineArchApp')
         .controller('MainController', MainController);
 
-    MainController.$inject = ['$scope', '$http', '$timeout'];
+    MainController.$inject = ['$scope', '$http', '$timeout', '$q'];
 
-    function MainController($scope, $http, $timeout) {
+    function MainController($scope, $http, $timeout, $q) {
         var vm = $scope;
         var API = '/api/mater';
 
@@ -110,10 +110,15 @@
         }
 
         // ===== LOAD DATA =====
+        function decodeXmlEntities(str) {
+            return (str || '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+        }
+
         function loadLocations() {
             spGet('EXEC sp_GetLocations').then(function (r) {
                 vm.locations = (r.data || []).map(function (loc) {
-                    loc.images = loc.images ? loc.images.split('|').filter(Boolean) : [];
+                    var raw = decodeXmlEntities(loc.images || loc.Images || '');
+                    loc.images = raw ? raw.split('|').filter(Boolean) : [];
                     return loc;
                 });
             }).catch(function () {
@@ -125,7 +130,8 @@
         function loadHotels() {
             spGet('EXEC sp_GetHotels').then(function (r) {
                 vm.hotels = (r.data || []).map(function (h) {
-                    h.images = h.images ? h.images.split('|').filter(Boolean) : [];
+                    var raw = decodeXmlEntities(h.images || h.Images || '');
+                    h.images = raw ? raw.split('|').filter(Boolean) : [];
                     return h;
                 });
             }).catch(function () {
@@ -265,7 +271,7 @@
 
         // ===== LOCATION MANAGEMENT =====
         function resetLocationObj() {
-            return { name: '', description: '', images: [], newFiles: [] };
+            return { name: '', description: '', images: [], newFiles: [], removedImages: [] };
         }
 
         vm.saveLocation = function () {
@@ -282,13 +288,26 @@
             }
 
             spExec(query).then(function (r) {
-                var id = vm.editingLocationId || (r.data && r.data.length > 0 ? r.data[0].id : null);
-                // Upload images if any
-                if (vm.newLocation.newFiles && vm.newLocation.newFiles.length > 0 && id) {
-                    uploadImages('locations', vm.newLocation.name, vm.newLocation.newFiles, id, 'location');
-                }
+                var row = r.data && r.data.length > 0 ? r.data[0] : null;
+                var id = vm.editingLocationId || (row ? (row.id || row.Id) : null);
+                var hasNewFiles = vm.newLocation.newFiles && vm.newLocation.newFiles.length > 0;
+                var locName = vm.newLocation.name;
+                var locFiles = vm.newLocation.newFiles;
+                var removedImgs = vm.newLocation.removedImages || [];
                 vm.cancelLocationEdit();
-                loadLocations();
+
+                var deletions = removedImgs.map(function (path) {
+                    $http.delete('/api/image/delete?path=' + encodeURIComponent(path));
+                    return spExec("DELETE FROM LocationImages WHERE ImagePath='" + esc(path) + "'");
+                });
+
+                $q.all(deletions).then(function () {
+                    if (hasNewFiles && id) {
+                        uploadImages('locations', locName, locFiles, id, 'location');
+                    } else {
+                        loadLocations();
+                    }
+                });
             });
         };
 
@@ -297,7 +316,8 @@
                 name: loc.name,
                 description: loc.description,
                 images: angular.copy(loc.images || []),
-                newFiles: []
+                newFiles: [],
+                removedImages: []
             };
             vm.editingLocationId = loc.id;
             vm.showAddLocationForm = true;
@@ -318,7 +338,7 @@
 
         // ===== HOTEL MANAGEMENT =====
         function resetHotelObj() {
-            return { name: '', starRating: '', foodOptions: '', location: '', description: '', images: [], newFiles: [] };
+            return { name: '', starRating: '', foodOptions: '', location: '', description: '', images: [], newFiles: [], removedImages: [] };
         }
 
         vm.saveHotel = function () {
@@ -338,12 +358,23 @@
             }
 
             spExec(query).then(function (r) {
-                var id = vm.editingHotelId || (r.data && r.data.length > 0 ? r.data[0].id : null);
-                if (h.newFiles && h.newFiles.length > 0 && id) {
-                    uploadImages('hotels', h.name, h.newFiles, id, 'hotel');
-                }
+                var row = r.data && r.data.length > 0 ? r.data[0] : null;
+                var id = vm.editingHotelId || (row ? (row.id || row.Id) : null);
+                var removedImgs = h.removedImages || [];
                 vm.cancelHotelEdit();
-                loadHotels();
+
+                var deletions = removedImgs.map(function (path) {
+                    $http.delete('/api/image/delete?path=' + encodeURIComponent(path));
+                    return spExec("DELETE FROM HotelImages WHERE ImagePath='" + esc(path) + "'");
+                });
+
+                $q.all(deletions).then(function () {
+                    if (h.newFiles && h.newFiles.length > 0 && id) {
+                        uploadImages('hotels', h.name, h.newFiles, id, 'hotel');
+                    } else {
+                        loadHotels();
+                    }
+                });
             });
         };
 
@@ -355,7 +386,8 @@
                 location: hotel.location || '',
                 description: hotel.description || '',
                 images: angular.copy(hotel.images || []),
-                newFiles: []
+                newFiles: [],
+                removedImages: []
             };
             vm.editingHotelId = hotel.id;
             vm.showAddHotelForm = true;
@@ -449,10 +481,24 @@
 
         vm.removeImage = function (type, idx) {
             var target = type === 'hotel' ? vm.newHotel : vm.newLocation;
-            target.images.splice(idx, 1);
-            if (target.newFiles && target.newFiles.length > idx) {
-                target.newFiles.splice(idx, 1);
+            var img = target.images[idx];
+
+            if (img && img.indexOf('data:') === 0) {
+                // It's a newly selected file (base64) — find its position among only the new files
+                var newFileIdx = 0;
+                for (var i = 0; i < idx; i++) {
+                    if (target.images[i] && target.images[i].indexOf('data:') === 0) newFileIdx++;
+                }
+                if (target.newFiles && newFileIdx < target.newFiles.length) {
+                    target.newFiles.splice(newFileIdx, 1);
+                }
+            } else {
+                // It's an existing saved image — mark it for deletion from DB
+                if (!target.removedImages) target.removedImages = [];
+                target.removedImages.push(img);
             }
+
+            target.images.splice(idx, 1);
         };
 
         function uploadImages(category, itemName, files, itemId, type) {
@@ -467,13 +513,13 @@
                 var paths = r.data.paths || [];
                 var spName = type === 'hotel' ? 'sp_InsertHotelImage' : 'sp_InsertLocationImage';
                 var idField = type === 'hotel' ? '@HotelId' : '@LocationId';
-                paths.forEach(function (p) {
-                    spExec("EXEC " + spName + " " + idField + "=" + itemId + ", @ImagePath='" + esc(p) + "'");
+                var promises = paths.map(function (p) {
+                    return spExec("EXEC " + spName + " " + idField + "=" + itemId + ", @ImagePath='" + esc(p) + "'");
                 });
-                $timeout(function () {
+                $q.all(promises).then(function () {
                     if (type === 'hotel') loadHotels();
                     else loadLocations();
-                }, 500);
+                });
             });
         }
 

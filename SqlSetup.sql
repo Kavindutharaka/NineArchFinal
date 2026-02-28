@@ -83,7 +83,7 @@ CREATE PROCEDURE sp_GetLocations
 AS
 BEGIN
     SELECT l.Id, l.Name, l.Description,
-           STUFF((SELECT '|' + li.ImagePath FROM LocationImages li WHERE li.LocationId = l.Id FOR XML PATH('')), 1, 1, '') AS Images
+           STUFF((SELECT '|' + li.ImagePath FROM LocationImages li WHERE li.LocationId = l.Id FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 1, '') AS Images
     FROM Locations l
     ORDER BY l.Name;
 END
@@ -153,7 +153,7 @@ CREATE PROCEDURE sp_GetHotels
 AS
 BEGIN
     SELECT h.Id, h.Name, h.StarRating, h.FoodOptions, h.Location, h.Description,
-           STUFF((SELECT '|' + hi.ImagePath FROM HotelImages hi WHERE hi.HotelId = h.Id FOR XML PATH('')), 1, 1, '') AS Images
+           STUFF((SELECT '|' + hi.ImagePath FROM HotelImages hi WHERE hi.HotelId = h.Id FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 1, '') AS Images
     FROM Hotels h
     ORDER BY h.Name;
 END
