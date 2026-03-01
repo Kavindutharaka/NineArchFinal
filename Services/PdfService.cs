@@ -57,7 +57,7 @@ namespace NineArchTours.Services
 
         public string BuildPdfHtml(QuoteRequest request)
         {
-            // Load base background 
+            // Load base background
             var bgPath = Path.Combine(_env.WebRootPath, "assets", "pdfbg.png");
             var bgBase64 = GetBase64Image(bgPath);
 
@@ -71,30 +71,45 @@ namespace NineArchTours.Services
                     .Select(d => d.HotelLocation)
                     .Distinct());
 
-            var daysHtml = BuildDaysHtml(request.Days);
+            var daysHtml       = BuildDaysHtml(request.Days);
             var inclusionsHtml = string.Join("\n", request.Inclusions.Select(i => $"<li>{Esc(i)}</li>"));
             var exclusionsHtml = string.Join("\n", request.Exclusions.Select(e => $"<li>{Esc(e)}</li>"));
 
+            // Accommodation pages (options)
             var accommodationHtml = "";
             var hasOpt1 = request.Option1 != null && request.Option1.Hotels.Count > 0;
             var hasOpt2 = request.Option2 != null && request.Option2.Hotels.Count > 0;
+            var adults  = request.NumberOfAdults > 0 ? request.NumberOfAdults : 1;
 
             if (hasOpt1)
             {
-                accommodationHtml += BuildOptionTablePage(request.Option1!, request.CurrencyCode, "Option 1");
+                accommodationHtml += BuildOptionTablePage(request.Option1!, request.CurrencyCode, "Option 1", adults);
                 if (hasOpt2)
-                    accommodationHtml += BuildOptionTablePage(request.Option2!, request.CurrencyCode, "Option 2");
+                    accommodationHtml += BuildOptionTablePage(request.Option2!, request.CurrencyCode, "Option 2", adults);
             }
 
+            // Non-option per-person cost block (shown on incl/excl page when no options used)
             var costHtml = "";
-            if (!hasOpt1 && request.TotalCost > 0)
+            if (!hasOpt1 && request.PerPersonCost > 0)
             {
+                var total = request.PerPersonCost * adults;
                 costHtml = $@"
                 <div class='cost-banner'>
-                    <div class='cost-label'>Total Tour Cost</div>
-                    <div class='cost-value'>{Esc(request.CurrencyCode)} {request.TotalCost:N2}</div>
+                    <div class='cost-row'>
+                        <span class='cost-label-text'>Tour Package Per Person:</span>
+                        <span class='cost-value'>{Esc(request.CurrencyCode)} {request.PerPersonCost:N2}</span>
+                    </div>
+                    <div class='cost-row' style='margin-top:8px;'>
+                        <span class='cost-label-text'>Total Package Cost ({adults} Adults):</span>
+                        <span class='cost-value total-val'>{Esc(request.CurrencyCode)} {total:N2}</span>
+                    </div>
                 </div>";
             }
+
+            // Vehicle page (after departure, before accommodation)
+            var vehicleHtml = !string.IsNullOrEmpty(request.VehicleModel)
+                ? BuildVehiclePage(request)
+                : "";
 
             return $@"
 <!DOCTYPE html>
@@ -105,13 +120,13 @@ namespace NineArchTours.Services
         @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700&display=swap');
         * {{ margin:0; padding:0; box-sizing:border-box; }}
         body {{ font-family:'Open Sans','Segoe UI',sans-serif; color:#333; font-size:11pt; line-height:1.6; }}
-        
+
         .page {{
-            width: 210mm; 
-            height: 297mm; /* Force exact A4 height */
+            width: 210mm;
+            height: 297mm;
             position: relative;
-            page-break-after: always; 
-            overflow: hidden; 
+            page-break-after: always;
+            overflow: hidden;
             background: #fff;
         }}
         .page-bg {{
@@ -119,26 +134,25 @@ namespace NineArchTours.Services
             {(string.IsNullOrEmpty(bgBase64) ? "" : $"background-image:url('{bgBase64}');")}
             background-size: cover; background-position: center; background-repeat: no-repeat;
         }}
-        
-        /* THE MAGIC CONTAINER */
+
         .page-content {{
-            position: relative; 
-            z-index: 1; 
-            padding: 160px 60px 100px 60px; /* Safe zones from top/bottom graphics */
-            height: 100%; /* Fills the 297mm page */
+            position: relative;
+            z-index: 1;
+            padding: 160px 60px 100px 60px;
+            height: 100%;
             display: flex;
             flex-direction: column;
-            justify-content: center; /* VERTICALLY CENTERS EVERYTHING */
+            justify-content: center;
         }}
 
         /* COVER PAGE */
         .cover-content {{
-            position: relative; 
-            z-index: 1; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            justify-content: center; 
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
             height: 100%;
             text-align: center;
             padding: 160px 60px 100px 60px;
@@ -155,11 +169,6 @@ namespace NineArchTours.Services
             height: 230px; margin-top: 22px; border-radius: 8px; overflow: hidden; flex-shrink: 0;
         }}
         .day-image-grid img {{ width: 100%; height: 100%; object-fit: cover; display: block; }}
-        /* VEHICLE BOX ON COVER */
-        .vehicle-box {{ margin-top:22px; display:inline-flex; align-items:center; gap:14px; background:#f0f6ff; border:1px solid #c8dff7; border-radius:8px; padding:12px 20px; font-size:11pt; color:#333; }}
-        .vehicle-box .vdetail {{ text-align:left; }}
-        .vehicle-box .vmodel {{ font-weight:700; color:#0a1628; font-size:12pt; }}
-        .vehicle-box .vmeta {{ font-size:9.5pt; color:#555; margin-top:3px; }}
         .day-title {{ font-size: 16pt; font-weight: 700; color: #0a1628; margin-bottom: 15px; border-bottom: 2px solid #0066cc; padding-bottom: 5px; }}
         .day-text ul {{ list-style: none; padding: 0; margin: 0 0 15px 0; }}
         .day-text ul li {{ padding: 4px 0 4px 20px; position: relative; font-size: 10.5pt; }}
@@ -167,13 +176,28 @@ namespace NineArchTours.Services
         .day-meta {{ font-size: 10.5pt; color: #555; margin-top: 10px; }}
         .day-meta strong {{ color: #0066cc; }}
 
+        /* VEHICLE PAGE */
+        .vehicle-img-large {{ width:100%; max-height:320px; object-fit:cover; border-radius:12px; margin-bottom:28px; }}
+        .vehicle-detail-box {{ background:#f4f8fc; border-radius:10px; overflow:hidden; border:1px solid #d0e4f7; }}
+        .vehicle-detail-row {{ display:flex; padding:14px 20px; border-bottom:1px solid #e0edf8; align-items:center; }}
+        .vehicle-detail-row:last-child {{ border-bottom:none; }}
+        .vd-label {{ font-weight:600; color:#0a1628; width:180px; flex-shrink:0; font-size:10.5pt; }}
+        .vd-value {{ color:#333; font-size:10.5pt; }}
+
         /* ACCOMMODATION TABLE */
         .acc-title {{ font-size:16pt; font-weight:700; color:#0a1628; margin-bottom:20px; }}
-        .acc-table {{ width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 10pt; }}
+        .acc-table {{ width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 10pt; }}
         .acc-table th {{ background: #0066cc; color: white; padding: 12px; text-align: left; font-weight: 600; border: 1px solid #0055aa; }}
         .acc-table td {{ padding: 12px; border: 1px solid #ddd; color: #333; }}
         .acc-table tr:nth-child(even) {{ background: #f9fbfd; }}
-        
+
+        /* COST BANNER */
+        .cost-banner {{ background:#f4f8fc; border-left: 5px solid #0066cc; padding:16px 20px; border-radius:0 8px 8px 0; }}
+        .cost-row {{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }}
+        .cost-label-text {{ font-size:11pt; color:#444; font-weight:500; }}
+        .cost-value {{ font-size:16pt; font-weight:700; color: #0a1628; }}
+        .total-val {{ color:#0055aa; font-size:18pt; }}
+
         /* INCLUSIONS / EXCLUSIONS */
         .section-title {{ font-size:16pt; font-weight:700; color:#0a1628; margin-bottom:15px; border-bottom:2px solid #0066cc; padding-bottom:5px; }}
         .two-col {{ display:flex; gap:40px; margin-top: 20px; }}
@@ -184,14 +208,22 @@ namespace NineArchTours.Services
         .inclusions-list li::before {{ content:'\2713'; position:absolute; left:0; color:#28a745; font-weight:bold; font-size: 12pt; top: 2px; }}
         .exclusions-list li::before {{ content:'\2717'; position:absolute; left:0; color:#dc3545; font-weight:bold; font-size: 12pt; top: 2px; }}
 
-        .cost-banner {{ background:#f4f8fc; border-left: 5px solid #0066cc; padding:15px 20px; margin-top:25px; }}
-        .cost-value {{ font-size:18pt; font-weight:700; color: #0a1628; }}
+        /* CANCELLATION POLICY */
+        .policy-intro {{ font-size:10.5pt; color:#444; margin-bottom:14px; line-height:1.7; }}
+        .policy-list {{ list-style:none; padding:0; margin:0 0 30px 0; }}
+        .policy-list li {{ padding:10px 0 10px 28px; position:relative; font-size:10.5pt; border-bottom:1px solid #eee; line-height:1.6; }}
+        .policy-list li:last-child {{ border-bottom:none; }}
+        .policy-list li::before {{ content:'\2022'; position:absolute; left:0; color:#0066cc; font-weight:bold; font-size:16pt; line-height:1; top:8px; }}
+        .policy-tagline {{ margin-top:auto; text-align:center; padding:24px 20px; border-top:2px solid #e8f0fa; }}
+        .tagline-quote {{ font-size:14pt; font-weight:700; color:#0a1628; font-style:italic; margin-bottom:8px; }}
+        .tagline-sub {{ font-size:10.5pt; color:#555; }}
 
         @media print {{ .page {{ page-break-after:always; }} }}
     </style>
 </head>
 <body>
 
+    <!-- ========== COVER PAGE ========== -->
     <div class='page'>
         <div class='page-bg'></div>
         <div class='cover-content'>
@@ -199,21 +231,26 @@ namespace NineArchTours.Services
             <div class='cover-duration'>{nightsLabel}</div>
             <div class='cover-subtitle'>{Esc(request.TourTitle)}</div>
             <div class='cover-badge'>(Personalized Luxury Tour)</div>
-            
+
             <div class='cover-details'>
                 <p><strong>Route:</strong> {Esc(routeSummary)}</p>
                 <p><strong>Hotel Category:</strong> {Esc(request.HotelCategory)} &nbsp;|&nbsp; <strong>Meal Plan:</strong> {Esc(request.MealPlan)}</p>
                 <br/><br/>
                 <p style='font-size: 14pt;'>Prepared for <strong>{Esc(request.ClientName)}</strong></p>
             </div>
-            {(!string.IsNullOrEmpty(request.VehicleModel) ? BuildVehicleBox(request) : "")}
         </div>
     </div>
 
+    <!-- ========== DAY PAGES ========== -->
     {daysHtml}
 
+    <!-- ========== VEHICLE PAGE (after Departure) ========== -->
+    {vehicleHtml}
+
+    <!-- ========== ACCOMMODATION PAGES ========== -->
     {accommodationHtml}
 
+    <!-- ========== INCLUSIONS / EXCLUSIONS PAGE ========== -->
     <div class='page'>
         <div class='page-bg'></div>
         <div class='page-content'>
@@ -232,26 +269,69 @@ namespace NineArchTours.Services
         </div>
     </div>
 
+    <!-- ========== CANCELLATION POLICY PAGE ========== -->
+    {BuildCancellationPage()}
+
 </body>
 </html>";
         }
 
-        private string BuildVehicleBox(QuoteRequest request)
+        // ── Vehicle page (dedicated page after departure) ──────────────────────
+        private string BuildVehiclePage(QuoteRequest request)
         {
             var imgHtml = "";
             if (!string.IsNullOrEmpty(request.VehicleImage))
             {
                 var b64 = ToBase64Url(request.VehicleImage);
                 if (!string.IsNullOrEmpty(b64))
-                    imgHtml = $"<img src='{b64}' style='width:90px;height:60px;object-fit:cover;border-radius:6px;flex-shrink:0;' />";
+                    imgHtml = $"<img src='{b64}' class='vehicle-img-large' />";
             }
 
             return $@"
-            <div class='vehicle-box'>
-                {imgHtml}
-                <div class='vdetail'>
-                    <div class='vmodel'>{Esc(request.VehicleModel)}</div>
-                    <div class='vmeta'>Seats: {request.VehicleSeating} &nbsp;|&nbsp; Air-Conditioned: {Esc(request.VehicleAirCon)}</div>
+            <div class='page'>
+                <div class='page-bg'></div>
+                <div class='page-content'>
+                    <h2 class='section-title'>Your Vehicle</h2>
+                    {imgHtml}
+                    <div class='vehicle-detail-box'>
+                        <div class='vehicle-detail-row'>
+                            <span class='vd-label'>Model</span>
+                            <span class='vd-value'>{Esc(request.VehicleModel)}</span>
+                        </div>
+                        <div class='vehicle-detail-row'>
+                            <span class='vd-label'>Seating Capacity</span>
+                            <span class='vd-value'>{request.VehicleSeating} Passengers</span>
+                        </div>
+                        <div class='vehicle-detail-row'>
+                            <span class='vd-label'>Air Conditioned</span>
+                            <span class='vd-value'>{Esc(request.VehicleAirCon)}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>";
+        }
+
+        // ── Cancellation Policy page ───────────────────────────────────────────
+        private static string BuildCancellationPage()
+        {
+            return @"
+            <div class='page'>
+                <div class='page-bg'></div>
+                <div class='page-content' style='justify-content:flex-start;'>
+                    <h2 class='section-title'>Cancellation Policy</h2>
+                    <p class='policy-intro'>At Nine-Arch Tour Agency, we offer flexible arrangements without compromising the quality of our tours.</p>
+                    <p class='policy-intro'>All cancellations must be submitted in writing.</p>
+                    <h3 style='font-size:11.5pt;font-weight:600;color:#0a1628;margin-bottom:14px;'>In Case of Cancellation, the Following Cancellation Charges will be applicable.</h3>
+                    <ul class='policy-list'>
+                        <li>Cancellation Made Prior <strong>30 days</strong> from the Scheduled start of a tour &mdash; <strong>90% of total tour fee will be refunded</strong>.</li>
+                        <li>Cancellation made Prior <strong>14 days</strong> Scheduled start of a tour &mdash; <strong>50% of total tour fee will be refunded</strong>.</li>
+                        <li>Cancellation made with <strong>less than 14 days</strong> from the start of a tour &mdash; <strong>Zero refund</strong>.</li>
+                        <li><strong>No Show</strong> &mdash; <strong>Zero refund</strong>.</li>
+                    </ul>
+                    <div class='policy-tagline'>
+                        <div class='tagline-quote'>&ldquo;Bridging journeys, Creating Memories&rdquo;</div>
+                        <div class='tagline-sub'>See you soon, where moments turn into memories.</div>
+                    </div>
                 </div>
             </div>";
         }
@@ -320,7 +400,7 @@ namespace NineArchTours.Services
             return string.Join("\n", pages);
         }
 
-        private string BuildOptionTablePage(PackageOption option, string currencyCode, string optionTitle)
+        private string BuildOptionTablePage(PackageOption option, string currencyCode, string optionTitle, int numberOfAdults)
         {
             var rows = option.Hotels.Select(h => $@"
                 <tr>
@@ -331,17 +411,29 @@ namespace NineArchTours.Services
                 </tr>
             ").ToList();
 
-            var costHtml = option.Cost > 0
-                ? $@"<div class='cost-banner'>
-                        <div><strong>Total Package Cost ({optionTitle}):</strong> {Esc(currencyCode)} {option.Cost:N2}</div>
-                    </div>" : "";
+            var costHtml = "";
+            if (option.Cost > 0)
+            {
+                var total = option.Cost * numberOfAdults;
+                costHtml = $@"
+                <div class='cost-banner'>
+                    <div class='cost-row'>
+                        <span class='cost-label-text'>Tour Package Per Person:</span>
+                        <span class='cost-value'>{Esc(currencyCode)} {option.Cost:N2}</span>
+                    </div>
+                    <div class='cost-row' style='margin-top:10px;'>
+                        <span class='cost-label-text'>Total Package Cost ({numberOfAdults} Adults):</span>
+                        <span class='cost-value total-val'>{Esc(currencyCode)} {total:N2}</span>
+                    </div>
+                </div>";
+            }
 
             return $@"
                 <div class='page'>
                     <div class='page-bg'></div>
                     <div class='page-content'>
                         <h2 class='acc-title'>Accommodation Details - {Esc(option.Title)}</h2>
-                        
+
                         <table class='acc-table'>
                             <thead>
                                 <tr>
@@ -355,7 +447,7 @@ namespace NineArchTours.Services
                                 {string.Join("\n", rows)}
                             </tbody>
                         </table>
-                        
+
                         {costHtml}
                     </div>
                 </div>";
@@ -386,7 +478,7 @@ namespace NineArchTours.Services
             if (urls == null || urls.Count == 0) return new();
             var picked = urls.OrderBy(_ => Guid.NewGuid()).Take(count).ToList();
             while (picked.Count > 0 && picked.Count < count) {
-                 picked.Add(picked[0]); 
+                 picked.Add(picked[0]);
             }
             return picked;
         }

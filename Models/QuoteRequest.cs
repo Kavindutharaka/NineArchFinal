@@ -16,6 +16,9 @@ namespace NineArchTours.Models
         public string VehicleAirCon { get; set; } = string.Empty;
         public string VehicleImage { get; set; } = string.Empty;
         public decimal TotalCost { get; set; }
+        public decimal PerPersonCost { get; set; }
+        public int NumberOfAdults { get; set; } = 1;
+        public int NumberOfKids { get; set; } = 0;
         public string CurrencyCode { get; set; } = "USD";
         public List<string> Inclusions { get; set; } = new();
         public List<string> Exclusions { get; set; } = new();
