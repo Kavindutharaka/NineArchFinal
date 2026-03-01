@@ -214,7 +214,7 @@ namespace NineArchTours.Services
         .policy-list li {{ padding:10px 0 10px 28px; position:relative; font-size:10.5pt; border-bottom:1px solid #eee; line-height:1.6; }}
         .policy-list li:last-child {{ border-bottom:none; }}
         .policy-list li::before {{ content:'\2022'; position:absolute; left:0; color:#0066cc; font-weight:bold; font-size:16pt; line-height:1; top:8px; }}
-        .policy-tagline {{ margin-top:auto; text-align:center; padding:24px 20px; border-top:2px solid #e8f0fa; }}
+        .policy-tagline {{ margin-top:40px; text-align:center; padding:24px 20px; border-top:2px solid #e8f0fa; }}
         .tagline-quote {{ font-size:14pt; font-weight:700; color:#0a1628; font-style:italic; margin-bottom:8px; }}
         .tagline-sub {{ font-size:10.5pt; color:#555; }}
 
@@ -324,7 +324,7 @@ namespace NineArchTours.Services
                     <h3 style='font-size:11.5pt;font-weight:600;color:#0a1628;margin-bottom:14px;'>In Case of Cancellation, the Following Cancellation Charges will be applicable.</h3>
                     <ul class='policy-list'>
                         <li>Cancellation Made Prior <strong>30 days</strong> from the Scheduled start of a tour &mdash; <strong>90% of total tour fee will be refunded</strong>.</li>
-                        <li>Cancellation made Prior <strong>14 days</strong> Scheduled start of a tour &mdash; <strong>50% of total tour fee will be refunded</strong>.</li>
+                        <li>Cancellation made Prior <strong>14 days</strong> from the Scheduled start of a tour &mdash; <strong>50% of total tour fee will be refunded</strong>.</li>
                         <li>Cancellation made with <strong>less than 14 days</strong> from the start of a tour &mdash; <strong>Zero refund</strong>.</li>
                         <li><strong>No Show</strong> &mdash; <strong>Zero refund</strong>.</li>
                     </ul>
@@ -382,13 +382,9 @@ namespace NineArchTours.Services
                             <ul>{string.Join("\n", descItems)}</ul>
                         </div>
 
-                        <div class='day-meta'>
-                            {(!string.IsNullOrEmpty(day.Highlights) ? $"<p><strong>Highlights:</strong> {Esc(day.Highlights)}</p>" : "")}
-                            <p><strong>Meals:</strong> {Esc(day.Meals)}</p>
-                            {(!string.IsNullOrEmpty(day.HotelName) && day.HotelName != "N/A"
-                                ? $"<p><strong>Overnight:</strong> {Esc(day.HotelName)} {(!string.IsNullOrEmpty(day.HotelStarRating) ? $"({Esc(day.HotelStarRating)} Star)" : "")}</p>"
-                                : "")}
-                        </div>
+                        {(!string.IsNullOrEmpty(day.Highlights)
+                            ? $"<div class='day-meta'><p><strong>Highlights:</strong> {Esc(day.Highlights)}</p></div>"
+                            : "")}
 
                         {imagesHtml}
                     </div>
@@ -402,8 +398,10 @@ namespace NineArchTours.Services
 
         private string BuildOptionTablePage(PackageOption option, string currencyCode, string optionTitle, int numberOfAdults)
         {
-            var rows = option.Hotels.Select(h => $@"
+            var sortedHotels = option.Hotels.OrderBy(h => h.DayNumber).ToList();
+            var rows = sortedHotels.Select(h => $@"
                 <tr>
+                    <td><strong>Day {h.DayNumber}</strong></td>
                     <td>{Esc(h.HotelLocation)}</td>
                     <td>{(!string.IsNullOrEmpty(h.HotelStarRating) ? $"{Esc(h.HotelStarRating)} Star" : "-")}</td>
                     <td><strong>{Esc(h.HotelName)}</strong></td>
@@ -437,6 +435,7 @@ namespace NineArchTours.Services
                         <table class='acc-table'>
                             <thead>
                                 <tr>
+                                    <th>Day</th>
                                     <th>Location</th>
                                     <th>Star Class</th>
                                     <th>Hotel Name</th>

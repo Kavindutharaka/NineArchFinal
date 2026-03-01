@@ -50,6 +50,7 @@ namespace NineArchTours.Models
 
     public class PackageOptionHotel
     {
+        public int DayNumber { get; set; }
         public string HotelName { get; set; } = string.Empty;
         public string HotelDescription { get; set; } = string.Empty;
         public string HotelStarRating { get; set; } = string.Empty;

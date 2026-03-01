@@ -48,6 +48,10 @@
         vm.option2 = { title: 'Option 2', cost: 0, hotels: [] };
         vm.selectedHotelForOpt1 = null;
         vm.selectedHotelForOpt2 = null;
+        vm.selectedDayForOpt1   = null;
+        vm.selectedDayForOpt2   = null;
+        vm.selectedMealForOpt1  = 'BB';
+        vm.selectedMealForOpt2  = 'BB';
 
         // ===== FORMS STATE =====
         vm.showAddHotelForm = false;
@@ -642,20 +646,21 @@
         vm.removeExclusion = function (idx) { vm.exclusions.splice(idx, 1); };
 
         // ===== PACKAGE OPTIONS =====
-        vm.addHotelToOption = function (option, hotelId) {
-            if (!hotelId) return;
+        vm.addHotelToOption = function (option, hotelId, dayNumber, mealPlan) {
+            if (!hotelId || !dayNumber) return;
             var h = vm.hotels.find(function (x) { return x.id == hotelId; });
             if (!h) return;
-            var exists = option.hotels.find(function (x) { return x.hotelName === h.name; });
-            if (exists) return;
             option.hotels.push({
+                dayNumber: parseInt(dayNumber),
                 hotelName: h.name,
                 hotelDescription: h.description || '',
                 hotelStarRating: h.starRating || '',
                 hotelLocation: h.location || '',
-                foodType: h.foodOptions || '',
+                foodType: mealPlan || h.foodOptions || 'BB',
                 hotelImages: angular.copy(h.images || [])
             });
+            // Keep sorted by day
+            option.hotels.sort(function (a, b) { return a.dayNumber - b.dayNumber; });
         };
 
         vm.removeHotelFromOption = function (option, idx) {

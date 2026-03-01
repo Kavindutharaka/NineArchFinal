@@ -157,21 +157,12 @@
                                         <input type="text" class="form-control" ng-model="day.locationName"
                                                placeholder="e.g.  Arrival / Negombo  |  Negombo ➜ Kandy  |  Ella / Departure">
                                     </div>
-                                    <div class="grid-2">
-                                        <div class="form-group">
-                                            <label>Load from Saved Template</label>
-                                            <select class="form-control" ng-model="day.itineraryTemplateId" ng-change="onItinerarySelected(day)">
-                                                <option value="">-- Select template --</option>
-                                                <option ng-repeat="t in itineraryTemplates" value="{{t.id}}">{{t.routeName}}</option>
-                                            </select>
-                                        </div>
-                                        <div class="form-group">
-                                            <label>Stay Hotel</label>
-                                            <select class="form-control" ng-model="day.hotelId" ng-change="onHotelSelected(day)">
-                                                <option value="">-- Select hotel --</option>
-                                                <option ng-repeat="h in hotels" value="{{h.id}}">{{h.name}} ({{h.location}})</option>
-                                            </select>
-                                        </div>
+                                    <div class="form-group">
+                                        <label>Load from Saved Template</label>
+                                        <select class="form-control" ng-model="day.itineraryTemplateId" ng-change="onItinerarySelected(day)">
+                                            <option value="">-- Select template --</option>
+                                            <option ng-repeat="t in itineraryTemplates" value="{{t.id}}">{{t.routeName}}</option>
+                                        </select>
                                     </div>
                                     <div class="grid-2">
                                         <div class="form-group">
@@ -202,15 +193,9 @@
                                                     </span>
                                                 </div>
                                             </div>
-                                            <div class="grid-2">
-                                                <div class="form-group">
-                                                    <label>Highlights</label>
-                                                    <input type="text" class="form-control" ng-model="day.highlights" placeholder="Key highlights">
-                                                </div>
-                                                <div class="form-group">
-                                                    <label>Meals</label>
-                                                    <input type="text" class="form-control" ng-model="day.meals" placeholder="e.g., Breakfast included">
-                                                </div>
+                                            <div class="form-group">
+                                                <label>Highlights</label>
+                                                <input type="text" class="form-control" ng-model="day.highlights" placeholder="Key highlights">
                                             </div>
                                         </div>
                                     </div>
@@ -292,21 +277,31 @@
                                             <input type="number" class="form-control" ng-model="option1.cost" min="0" step="0.01" placeholder="0.00">
                                         </div>
                                         <div class="form-group">
-                                            <label>Add Hotels</label>
-                                            <div style="display:flex;gap:8px;">
-                                                <select class="form-control" ng-model="selectedHotelForOpt1" style="flex:1;">
-                                                    <option value="">-- Select --</option>
+                                            <label>Add Hotel by Day</label>
+                                            <div style="display:grid;grid-template-columns:100px 1fr 90px;gap:6px;margin-bottom:8px;">
+                                                <select class="form-control" ng-model="selectedDayForOpt1">
+                                                    <option value="">Day</option>
+                                                    <option ng-repeat="day in tourData.days" value="{{day.dayNumber}}">Day {{day.dayNumber}}</option>
+                                                </select>
+                                                <select class="form-control" ng-model="selectedHotelForOpt1">
+                                                    <option value="">-- Hotel --</option>
                                                     <option ng-repeat="h in hotels" value="{{h.id}}">{{h.name}} ({{h.location}})</option>
                                                 </select>
-                                                <button class="btn btn-primary btn-sm" ng-click="addHotelToOption(option1,selectedHotelForOpt1);selectedHotelForOpt1=null" ng-disabled="!selectedHotelForOpt1">
-                                                    <i class="fas fa-plus"></i>
-                                                </button>
+                                                <select class="form-control" ng-model="selectedMealForOpt1">
+                                                    <option value="BB">BB</option>
+                                                    <option value="HB">HB</option>
+                                                    <option value="FB">FB</option>
+                                                    <option value="AI">AI</option>
+                                                </select>
                                             </div>
+                                            <button class="btn btn-primary btn-sm" ng-click="addHotelToOption(option1,selectedHotelForOpt1,selectedDayForOpt1,selectedMealForOpt1);selectedHotelForOpt1=null;selectedDayForOpt1=null;" ng-disabled="!selectedHotelForOpt1 || !selectedDayForOpt1">
+                                                <i class="fas fa-plus"></i> Add
+                                            </button>
                                         </div>
                                         <div ng-repeat="h in option1.hotels" class="option-hotel-item">
                                             <div>
-                                                <strong style="font-size:0.85rem;">{{h.hotelName}}</strong>
-                                                <div style="font-size:0.75rem;color:var(--text-light);">{{h.hotelStarRating}} - {{h.hotelLocation}}</div>
+                                                <strong style="font-size:0.85rem;">Day {{h.dayNumber}} &mdash; {{h.hotelName}}</strong>
+                                                <div style="font-size:0.75rem;color:var(--text-light);">{{h.hotelStarRating}} Star &middot; {{h.hotelLocation}} &middot; {{h.foodType}}</div>
                                             </div>
                                             <button style="background:none;border:none;color:var(--danger);cursor:pointer;" ng-click="removeHotelFromOption(option1,$index)">
                                                 <i class="fas fa-times"></i>
@@ -336,21 +331,31 @@
                                             <input type="number" class="form-control" ng-model="option2.cost" min="0" step="0.01" placeholder="0.00">
                                         </div>
                                         <div class="form-group">
-                                            <label>Add Hotels</label>
-                                            <div style="display:flex;gap:8px;">
-                                                <select class="form-control" ng-model="selectedHotelForOpt2" style="flex:1;">
-                                                    <option value="">-- Select --</option>
+                                            <label>Add Hotel by Day</label>
+                                            <div style="display:grid;grid-template-columns:100px 1fr 90px;gap:6px;margin-bottom:8px;">
+                                                <select class="form-control" ng-model="selectedDayForOpt2">
+                                                    <option value="">Day</option>
+                                                    <option ng-repeat="day in tourData.days" value="{{day.dayNumber}}">Day {{day.dayNumber}}</option>
+                                                </select>
+                                                <select class="form-control" ng-model="selectedHotelForOpt2">
+                                                    <option value="">-- Hotel --</option>
                                                     <option ng-repeat="h in hotels" value="{{h.id}}">{{h.name}} ({{h.location}})</option>
                                                 </select>
-                                                <button class="btn btn-ghost btn-sm" ng-click="addHotelToOption(option2,selectedHotelForOpt2);selectedHotelForOpt2=null" ng-disabled="!selectedHotelForOpt2">
-                                                    <i class="fas fa-plus"></i>
-                                                </button>
+                                                <select class="form-control" ng-model="selectedMealForOpt2">
+                                                    <option value="BB">BB</option>
+                                                    <option value="HB">HB</option>
+                                                    <option value="FB">FB</option>
+                                                    <option value="AI">AI</option>
+                                                </select>
                                             </div>
+                                            <button class="btn btn-ghost btn-sm" ng-click="addHotelToOption(option2,selectedHotelForOpt2,selectedDayForOpt2,selectedMealForOpt2);selectedHotelForOpt2=null;selectedDayForOpt2=null;" ng-disabled="!selectedHotelForOpt2 || !selectedDayForOpt2">
+                                                <i class="fas fa-plus"></i> Add
+                                            </button>
                                         </div>
                                         <div ng-repeat="h in option2.hotels" class="option-hotel-item">
                                             <div>
-                                                <strong style="font-size:0.85rem;">{{h.hotelName}}</strong>
-                                                <div style="font-size:0.75rem;color:var(--text-light);">{{h.hotelStarRating}} - {{h.hotelLocation}}</div>
+                                                <strong style="font-size:0.85rem;">Day {{h.dayNumber}} &mdash; {{h.hotelName}}</strong>
+                                                <div style="font-size:0.75rem;color:var(--text-light);">{{h.hotelStarRating}} Star &middot; {{h.hotelLocation}} &middot; {{h.foodType}}</div>
                                             </div>
                                             <button style="background:none;border:none;color:var(--danger);cursor:pointer;" ng-click="removeHotelFromOption(option2,$index)">
                                                 <i class="fas fa-times"></i>
@@ -394,8 +399,8 @@
                                 <h2><i class="fas fa-dollar-sign"></i> Pricing</h2>
                             </div>
                             <div class="card-body">
-                                <div class="grid-2">
-                                    <div class="form-group">
+                                <div style="display:flex;gap:12px;align-items:flex-end;">
+                                    <div class="form-group" style="flex:0 0 130px;margin-bottom:0;">
                                         <label>Currency</label>
                                         <select class="form-control" ng-model="tourData.currencyCode">
                                             <option value="USD">USD</option>
@@ -406,8 +411,8 @@
                                             <option value="INR">INR</option>
                                         </select>
                                     </div>
-                                    <div class="form-group">
-                                        <label>Tour Package Per Person ({{tourData.currencyCode}})</label>
+                                    <div class="form-group" style="flex:1;margin-bottom:0;">
+                                        <label>Per Person Cost</label>
                                         <input type="number" class="form-control" ng-model="tourData.perPersonCost" min="0" step="0.01" placeholder="0.00">
                                     </div>
                                 </div>
