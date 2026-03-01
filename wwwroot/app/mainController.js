@@ -141,7 +141,11 @@
 
         function loadVehicles() {
             spGet('EXEC sp_GetVehicles').then(function (r) {
-                vm.vehicles = r.data || [];
+                vm.vehicles = (r.data || []).map(function (v) {
+                    var raw = decodeXmlEntities(v.images || v.Images || '');
+                    v.images = raw ? raw.split('|').filter(Boolean) : [];
+                    return v;
+                });
             }).catch(function () {
                 vm.vehicles = [];
             });
@@ -172,6 +176,26 @@
                 }
             }
         };
+
+        // ===== SMART ROUTE LABEL =====
+        function computeRouteLabel(dayIndex) {
+            var days = vm.tourData.days;
+            var day = days[dayIndex];
+            var total = days.length;
+            var loc = day.hotelLocation ||
+                      (day.visitedLocations && day.visitedLocations.length > 0 ? day.visitedLocations[0] : '');
+            if (dayIndex === 0) {
+                return loc ? 'Arrival / ' + loc : 'Arrival';
+            } else if (dayIndex === total - 1 && total > 1) {
+                return loc ? loc + ' / Departure' : 'Departure';
+            } else {
+                var prev = days[dayIndex - 1];
+                var prevLoc = prev ? (prev.hotelLocation || (prev.visitedLocations && prev.visitedLocations.length > 0 ? prev.visitedLocations[0] : '')) : '';
+                if (prevLoc && loc) return prevLoc + ' \u279C ' + loc;
+                if (loc) return loc;
+                return '';
+            }
+        }
 
         function generateDays() {
             var existing = vm.tourData.days;
@@ -215,6 +239,12 @@
             });
             vm.tourData.totalDays = vm.tourData.days.length;
             vm.tourData.numberOfNights = vm.tourData.days.length - 1;
+            var newIdx = vm.tourData.days.length - 1;
+            vm.tourData.days[newIdx].locationName = computeRouteLabel(newIdx);
+            // Previous last day was "Departure" — recompute it now it's a middle day
+            if (newIdx > 0) {
+                vm.tourData.days[newIdx - 1].locationName = computeRouteLabel(newIdx - 1);
+            }
         };
 
         vm.removeDay = function (idx) {
@@ -224,6 +254,15 @@
             }
             vm.tourData.totalDays = vm.tourData.days.length;
             vm.tourData.numberOfNights = Math.max(0, vm.tourData.days.length - 1);
+            // Recompute the day that shifted into this slot
+            if (idx < vm.tourData.days.length) {
+                vm.tourData.days[idx].locationName = computeRouteLabel(idx);
+            }
+            // Recompute new last day (Departure label)
+            var lastIdx = vm.tourData.days.length - 1;
+            if (lastIdx >= 0 && lastIdx !== idx) {
+                vm.tourData.days[lastIdx].locationName = computeRouteLabel(lastIdx);
+            }
         };
 
         vm.moveDay = function (idx, dir) {
@@ -234,6 +273,14 @@
             vm.tourData.days[ni] = t;
             for (var i = 0; i < vm.tourData.days.length; i++) {
                 vm.tourData.days[i].dayNumber = i + 1;
+            }
+            // Recompute labels for both swapped positions + the day after the lower one
+            var lo = Math.min(idx, ni), hi = Math.max(idx, ni);
+            [lo, hi].forEach(function (i) {
+                vm.tourData.days[i].locationName = computeRouteLabel(i);
+            });
+            if (hi + 1 < vm.tourData.days.length) {
+                vm.tourData.days[hi + 1].locationName = computeRouteLabel(hi + 1);
             }
         };
 
@@ -255,7 +302,36 @@
                 day.hotelDescription = h.description || '';
                 day.hotelStarRating = h.starRating || '';
                 day.hotelLocation = h.location || '';
+                // Auto-set the smart route label for this day
+                var idx = vm.tourData.days.indexOf(day);
+                day.locationName = computeRouteLabel(idx);
+                // Also update next day since its "prev location" just changed
+                if (idx + 1 < vm.tourData.days.length) {
+                    vm.tourData.days[idx + 1].locationName = computeRouteLabel(idx + 1);
+                }
             }
+        };
+
+        // ===== TEMPLATE MANAGEMENT =====
+        vm.saveAsTemplate = function (day) {
+            if (!day.itineraryDescription.trim()) {
+                alert('Please add a description before saving as template.');
+                return;
+            }
+            var name = prompt('Save as template — enter a route name:', day.locationName || 'Custom Template');
+            if (name === null) return;
+            name = name.trim();
+            if (!name) { alert('Template name is required.'); return; }
+            spExec("EXEC sp_InsertItineraryTemplate @RouteName='" + esc(name) +
+                   "', @Description='" + esc(day.itineraryDescription) +
+                   "', @Highlights='" + esc(day.highlights || '') + "'")
+                .then(function () { loadItineraryTemplates(); });
+        };
+
+        vm.deleteTemplate = function (tmpl) {
+            if (!confirm('Delete template "' + tmpl.routeName + '"? This cannot be undone.')) return;
+            spExec("EXEC sp_DeleteItineraryTemplate @Id=" + tmpl.id)
+                .then(function () { loadItineraryTemplates(); });
         };
 
         vm.addLocationToDay = function (day) {
@@ -408,7 +484,7 @@
 
         // ===== VEHICLE MANAGEMENT =====
         function resetVehicleObj() {
-            return { model: '', seating: '', luggage: '', airCon: 'Yes' };
+            return { model: '', seating: '', luggage: '', airCon: 'Yes', images: [], newFiles: [], removedImages: [] };
         }
 
         vm.saveVehicle = function () {
@@ -425,9 +501,27 @@
                     ", @Luggage=" + (v.luggage || 0) + ", @AirCon='" + esc(v.airCon) + "'";
             }
 
-            spExec(query).then(function () {
+            var vName = v.model;
+            var vFiles = (v.newFiles || []).slice(); // shallow copy — preserves File object references
+            var removedImgs = v.removedImages || [];
+
+            spExec(query).then(function (r) {
+                var row = r.data && r.data.length > 0 ? r.data[0] : null;
+                var id = vm.editingVehicleId || (row ? (row.id || row.Id) : null);
                 vm.cancelVehicleEdit();
-                loadVehicles();
+
+                var deletions = removedImgs.map(function (path) {
+                    $http.delete('/api/image/delete?path=' + encodeURIComponent(path));
+                    return spExec("DELETE FROM VehicleImages WHERE ImagePath='" + esc(path) + "'");
+                });
+
+                $q.all(deletions).then(function () {
+                    if (vFiles.length > 0 && id) {
+                        uploadImages('vehicles', vName, vFiles, id, 'vehicle');
+                    } else {
+                        loadVehicles();
+                    }
+                });
             });
         };
 
@@ -436,7 +530,10 @@
                 model: v.model,
                 seating: v.seating,
                 luggage: v.luggage,
-                airCon: v.airCon || 'Yes'
+                airCon: v.airCon || 'Yes',
+                images: angular.copy(v.images || []),
+                newFiles: [],
+                removedImages: []
             };
             vm.editingVehicleId = v.id;
             vm.showAddVehicleForm = true;
@@ -461,6 +558,7 @@
             var target;
             if (type === 'hotel') target = vm.newHotel;
             else if (type === 'location') target = vm.newLocation;
+            else if (type === 'vehicle') target = vm.newVehicle;
             else return;
 
             if (!target.newFiles) target.newFiles = [];
@@ -480,7 +578,7 @@
         };
 
         vm.removeImage = function (type, idx) {
-            var target = type === 'hotel' ? vm.newHotel : vm.newLocation;
+            var target = type === 'hotel' ? vm.newHotel : (type === 'vehicle' ? vm.newVehicle : vm.newLocation);
             var img = target.images[idx];
 
             if (img && img.indexOf('data:') === 0) {
@@ -511,13 +609,14 @@
                 headers: { 'Content-Type': undefined }
             }).then(function (r) {
                 var paths = r.data.paths || [];
-                var spName = type === 'hotel' ? 'sp_InsertHotelImage' : 'sp_InsertLocationImage';
-                var idField = type === 'hotel' ? '@HotelId' : '@LocationId';
+                var spName = type === 'hotel' ? 'sp_InsertHotelImage' : (type === 'vehicle' ? 'sp_InsertVehicleImage' : 'sp_InsertLocationImage');
+                var idField = type === 'hotel' ? '@HotelId' : (type === 'vehicle' ? '@VehicleId' : '@LocationId');
                 var promises = paths.map(function (p) {
                     return spExec("EXEC " + spName + " " + idField + "=" + itemId + ", @ImagePath='" + esc(p) + "'");
                 });
                 $q.all(promises).then(function () {
                     if (type === 'hotel') loadHotels();
+                    else if (type === 'vehicle') loadVehicles();
                     else loadLocations();
                 });
             });
@@ -614,6 +713,7 @@
                 };
             });
 
+            var selVehicle = vm.getSelectedVehicle();
             var payload = {
                 clientName: vm.tourData.clientName,
                 arrivalDate: vm.tourData.arrivalDate || '',
@@ -624,6 +724,10 @@
                 numberOfNights: vm.tourData.numberOfNights || 0,
                 days: dayPlans,
                 selectedVehicleId: vm.tourData.selectedVehicleId || 0,
+                vehicleModel: selVehicle ? (selVehicle.model || '') : '',
+                vehicleSeating: selVehicle ? (selVehicle.seating || 0) : 0,
+                vehicleAirCon: selVehicle ? (selVehicle.airCon || '') : '',
+                vehicleImage: selVehicle && selVehicle.images && selVehicle.images.length > 0 ? selVehicle.images[0] : '',
                 totalCost: vm.tourData.totalCost || 0,
                 currencyCode: vm.tourData.currencyCode || 'USD',
                 inclusions: vm.inclusions,
@@ -700,6 +804,7 @@
                 };
             });
 
+            var selVehicleP = vm.getSelectedVehicle();
             var payload = {
                 clientName: vm.tourData.clientName || 'Preview Client',
                 arrivalDate: vm.tourData.arrivalDate || '',
@@ -710,6 +815,10 @@
                 numberOfNights: vm.tourData.numberOfNights || 0,
                 days: dayPlans,
                 selectedVehicleId: vm.tourData.selectedVehicleId || 0,
+                vehicleModel: selVehicleP ? (selVehicleP.model || '') : '',
+                vehicleSeating: selVehicleP ? (selVehicleP.seating || 0) : 0,
+                vehicleAirCon: selVehicleP ? (selVehicleP.airCon || '') : '',
+                vehicleImage: selVehicleP && selVehicleP.images && selVehicleP.images.length > 0 ? selVehicleP.images[0] : '',
                 totalCost: vm.tourData.totalCost || 0,
                 currencyCode: vm.tourData.currencyCode || 'USD',
                 inclusions: vm.inclusions,

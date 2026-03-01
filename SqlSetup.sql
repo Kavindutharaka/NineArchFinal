@@ -60,6 +60,15 @@ CREATE TABLE Vehicles (
     CreatedAt DATETIME DEFAULT GETDATE()
 );
 
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'VehicleImages')
+CREATE TABLE VehicleImages (
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    VehicleId INT NOT NULL,
+    ImagePath NVARCHAR(500) NOT NULL,
+    CreatedAt DATETIME DEFAULT GETDATE(),
+    FOREIGN KEY (VehicleId) REFERENCES Vehicles(Id) ON DELETE CASCADE
+);
+
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'ItineraryTemplates')
 CREATE TABLE ItineraryTemplates (
     Id INT IDENTITY(1,1) PRIMARY KEY,
@@ -230,7 +239,24 @@ GO
 CREATE PROCEDURE sp_GetVehicles
 AS
 BEGIN
-    SELECT Id, Model, Seating, Luggage, AirCon FROM Vehicles ORDER BY Model;
+    SELECT v.Id, v.Model, v.Seating, v.Luggage, v.AirCon,
+           STUFF((SELECT '|' + vi.ImagePath FROM VehicleImages vi WHERE vi.VehicleId = v.Id FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 1, '') AS Images
+    FROM Vehicles v
+    ORDER BY v.Model;
+END
+GO
+
+-- Insert vehicle image
+IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'sp_InsertVehicleImage')
+    DROP PROCEDURE sp_InsertVehicleImage;
+GO
+CREATE PROCEDURE sp_InsertVehicleImage
+    @VehicleId INT,
+    @ImagePath NVARCHAR(500)
+AS
+BEGIN
+    INSERT INTO VehicleImages (VehicleId, ImagePath) VALUES (@VehicleId, @ImagePath);
+    SELECT SCOPE_IDENTITY() AS Id;
 END
 GO
 
@@ -273,6 +299,19 @@ AS
 BEGIN
     INSERT INTO ItineraryTemplates (RouteName, Description, Highlights) VALUES (@RouteName, @Description, @Highlights);
     SELECT SCOPE_IDENTITY() AS Id;
+END
+GO
+
+-- Delete itinerary template
+IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'sp_DeleteItineraryTemplate')
+    DROP PROCEDURE sp_DeleteItineraryTemplate;
+GO
+CREATE PROCEDURE sp_DeleteItineraryTemplate
+    @Id INT
+AS
+BEGIN
+    DELETE FROM ItineraryTemplates WHERE Id = @Id;
+    SELECT @Id AS DeletedId;
 END
 GO
 

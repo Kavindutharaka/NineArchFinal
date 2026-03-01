@@ -38,6 +38,9 @@
             <button ng-click="activeTab='locations'" ng-class="{'active':activeTab==='locations'}" class="nav-tab">
                 <i class="fas fa-map-marked-alt"></i> Locations
             </button>
+            <button ng-click="activeTab='templates'" ng-class="{'active':activeTab==='templates'}" class="nav-tab">
+                <i class="fas fa-bookmark"></i> Templates
+            </button>
         </div>
     </nav>
 
@@ -118,8 +121,9 @@
                                     <div class="day-badge">
                                         <i class="fas fa-circle-dot"></i>
                                         Day {{day.dayNumber}}
-                                        <span ng-if="day.dayNumber===1" style="opacity:0.8;font-weight:400;font-size:0.8rem;"> - Arrival</span>
-                                        <span ng-if="day.dayNumber===tourData.totalDays && tourData.totalDays > 1" style="opacity:0.8;font-weight:400;font-size:0.8rem;"> - Departure</span>
+                                        <span ng-if="day.locationName" style="opacity:0.85;font-weight:400;font-size:0.82rem;"> &mdash; {{day.locationName}}</span>
+                                        <span ng-if="!day.locationName && day.dayNumber===1" style="opacity:0.8;font-weight:400;font-size:0.8rem;"> - Arrival</span>
+                                        <span ng-if="!day.locationName && day.dayNumber===tourData.totalDays && tourData.totalDays > 1" style="opacity:0.8;font-weight:400;font-size:0.8rem;"> - Departure</span>
                                     </div>
                                     <div class="day-actions">
                                         <button class="btn-icon" ng-click="moveDay($index,-1)" ng-disabled="$index===0" title="Move Up">
@@ -134,11 +138,20 @@
                                     </div>
                                 </div>
                                 <div class="day-item-body">
+                                    <!-- Route / Day Title -->
+                                    <div class="form-group" style="margin-bottom:14px;">
+                                        <label style="display:flex;justify-content:space-between;align-items:center;">
+                                            <span>Route / Day Title <span style="color:var(--primary);font-weight:600;">(shown in PDF)</span></span>
+                                            <span style="font-size:0.75rem;color:var(--text-light);font-weight:400;">Auto-fills when hotel selected &mdash; edit freely</span>
+                                        </label>
+                                        <input type="text" class="form-control" ng-model="day.locationName"
+                                               placeholder="e.g.  Arrival / Negombo  |  Negombo ➜ Kandy  |  Ella / Departure">
+                                    </div>
                                     <div class="grid-2">
                                         <div class="form-group">
-                                            <label>Route / Activity Template</label>
+                                            <label>Load from Saved Template</label>
                                             <select class="form-control" ng-model="day.itineraryTemplateId" ng-change="onItinerarySelected(day)">
-                                                <option value="">-- Select a route --</option>
+                                                <option value="">-- Select template --</option>
                                                 <option ng-repeat="t in itineraryTemplates" value="{{t.id}}">{{t.routeName}}</option>
                                             </select>
                                         </div>
@@ -153,7 +166,12 @@
                                     <div class="grid-2">
                                         <div class="form-group">
                                             <label>Description</label>
-                                            <textarea class="form-control" rows="4" ng-model="day.itineraryDescription" placeholder="Activity details..."></textarea>
+                                            <textarea class="form-control" rows="4" ng-model="day.itineraryDescription" placeholder="Activity details...&#10;e.g.:&#10;- Meet &amp; greet at airport&#10;- Transfer to hotel&#10;- Leisure at beach"></textarea>
+                                            <div style="margin-top:6px;text-align:right;">
+                                                <button class="btn btn-ghost btn-sm" ng-click="saveAsTemplate(day)" title="Save this route &amp; description as a reusable template">
+                                                    <i class="fas fa-bookmark"></i> Save as Template
+                                                </button>
+                                            </div>
                                         </div>
                                         <div>
                                             <div class="form-group">
@@ -419,9 +437,9 @@
                                     <span ng-if="!isGenerating"><i class="fas fa-file-pdf"></i> Generate PDF</span>
                                     <span ng-if="isGenerating"><span class="spinner"></span> Generating...</span>
                                 </button>
-                                <button class="generate-btn" ng-click="previewPdf()" style="margin-top:8px;background:rgba(255,255,255,0.15);color:white;font-size:0.85rem;padding:10px;">
+                                <!-- <button class="generate-btn" ng-click="previewPdf()" style="margin-top:8px;background:rgba(255,255,255,0.15);color:white;font-size:0.85rem;padding:10px;">
                                     <i class="fas fa-eye"></i> Preview HTML
-                                </button>
+                                </button> -->
                             </div>
                         </div>
                     </div>
@@ -574,6 +592,20 @@
                             </select>
                         </div>
                     </div>
+                    <div class="form-group">
+                        <label>Vehicle Images</label>
+                        <div class="image-upload-zone">
+                            <input type="file" multiple accept="image/*" onchange="angular.element(this).scope().handleImageUpload(event, 'vehicle')">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <p>Drop images or click to upload (1st image shown in PDF)</p>
+                        </div>
+                        <div class="image-preview-grid">
+                            <div ng-repeat="img in newVehicle.images" class="image-preview-item animate-fade-in">
+                                <img ng-src="{{img}}">
+                                <button class="remove-btn" ng-click="removeImage('vehicle',$index)"><i class="fas fa-times"></i></button>
+                            </div>
+                        </div>
+                    </div>
                     <div style="display:flex;gap:10px;">
                         <button class="btn btn-success" ng-click="saveVehicle()">
                             <i class="fas fa-save"></i> {{editingVehicleId ? 'Update' : 'Save'}} Vehicle
@@ -588,7 +620,8 @@
             <div class="item-grid">
                 <div ng-repeat="v in vehicles" class="item-card" style="animation-delay:{{$index * 0.1}}s">
                     <div class="item-card-image" style="height:140px;background:linear-gradient(135deg,#e0ecff,#f0f4f8);">
-                        <div class="placeholder-icon"><i class="fas fa-van-shuttle"></i></div>
+                        <img ng-if="v.images && v.images.length > 0" ng-src="{{v.images[0]}}" style="width:100%;height:100%;object-fit:cover;">
+                        <div ng-if="!v.images || v.images.length === 0" class="placeholder-icon"><i class="fas fa-van-shuttle"></i></div>
                     </div>
                     <div class="item-card-body">
                         <h3>{{v.model}}</h3>
@@ -681,6 +714,49 @@
             <div ng-if="locations.length === 0" class="empty-state">
                 <i class="fas fa-map-marked-alt"></i>
                 <p>No locations added yet. Click "Add Location" to get started.</p>
+            </div>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- TEMPLATES TAB -->
+        <!-- ============================================ -->
+        <div ng-show="activeTab==='templates'" class="animate-fade-up">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-bookmark"></i> Saved Route Templates</h2>
+                </div>
+                <div class="card-body">
+                    <p style="font-size:0.85rem;color:var(--text-light);margin-bottom:20px;padding:12px 16px;background:#f0f9ff;border-left:3px solid var(--primary);border-radius:0 8px 8px 0;">
+                        <i class="fas fa-info-circle" style="margin-right:6px;color:var(--primary);"></i>
+                        Templates are loaded in the <strong>Daily Itinerary</strong> section via the "Load from Saved Template" dropdown.
+                        To create a new template, type a description in any day and click <strong>Save as Template</strong>.
+                    </p>
+
+                    <div ng-if="itineraryTemplates.length === 0" class="empty-state">
+                        <i class="fas fa-bookmark"></i>
+                        <p>No saved templates yet. Go to the Generate Tour tab, type a day description, and click "Save as Template".</p>
+                    </div>
+
+                    <div class="item-grid" ng-if="itineraryTemplates.length > 0">
+                        <div ng-repeat="t in itineraryTemplates" class="item-card" style="animation-delay:{{$index * 0.08}}s;">
+                            <div class="item-card-body">
+                                <h3 style="display:flex;align-items:center;gap:8px;">
+                                    <i class="fas fa-route" style="color:var(--primary);font-size:0.9rem;"></i>
+                                    {{t.routeName}}
+                                </h3>
+                                <p style="font-size:0.82rem;color:var(--text-light);line-height:1.55;margin:8px 0 6px;white-space:pre-line;">{{t.description | limitTo:200}}<span ng-if="t.description.length > 200">…</span></p>
+                                <small ng-if="t.highlights" style="display:block;color:var(--text-light);font-style:italic;margin-bottom:10px;">
+                                    <i class="fas fa-star" style="color:#f59e0b;font-size:0.72rem;margin-right:4px;"></i>{{t.highlights}}
+                                </small>
+                                <div class="item-card-actions">
+                                    <button class="btn btn-danger btn-sm" ng-click="deleteTemplate(t)">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 

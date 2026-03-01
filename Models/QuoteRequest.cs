@@ -11,6 +11,10 @@ namespace NineArchTours.Models
         public int NumberOfNights { get; set; }
         public List<DayPlan> Days { get; set; } = new();
         public int SelectedVehicleId { get; set; }
+        public string VehicleModel { get; set; } = string.Empty;
+        public int VehicleSeating { get; set; }
+        public string VehicleAirCon { get; set; } = string.Empty;
+        public string VehicleImage { get; set; } = string.Empty;
         public decimal TotalCost { get; set; }
         public string CurrencyCode { get; set; } = "USD";
         public List<string> Inclusions { get; set; } = new();
