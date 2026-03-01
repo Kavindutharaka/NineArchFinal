@@ -279,13 +279,13 @@
                                         <div class="form-group">
                                             <label>Add Hotel by Day</label>
                                             <div style="display:grid;grid-template-columns:100px 1fr 90px;gap:6px;margin-bottom:8px;">
-                                                <select class="form-control" ng-model="selectedDayForOpt1">
+                                                <select class="form-control" ng-model="selectedDayForOpt1" ng-change="selectedHotelForOpt1=null">
                                                     <option value="">Day</option>
                                                     <option ng-repeat="day in tourData.days" value="{{day.dayNumber}}">Day {{day.dayNumber}}</option>
                                                 </select>
                                                 <select class="form-control" ng-model="selectedHotelForOpt1">
                                                     <option value="">-- Hotel --</option>
-                                                    <option ng-repeat="h in hotels" value="{{h.id}}">{{h.name}} ({{h.location}})</option>
+                                                    <option ng-repeat="h in getHotelsForDay(selectedDayForOpt1)" value="{{h.id}}">{{h.name}} ({{h.location}})</option>
                                                 </select>
                                                 <select class="form-control" ng-model="selectedMealForOpt1">
                                                     <option value="BB">BB</option>
@@ -333,13 +333,13 @@
                                         <div class="form-group">
                                             <label>Add Hotel by Day</label>
                                             <div style="display:grid;grid-template-columns:100px 1fr 90px;gap:6px;margin-bottom:8px;">
-                                                <select class="form-control" ng-model="selectedDayForOpt2">
+                                                <select class="form-control" ng-model="selectedDayForOpt2" ng-change="selectedHotelForOpt2=null">
                                                     <option value="">Day</option>
                                                     <option ng-repeat="day in tourData.days" value="{{day.dayNumber}}">Day {{day.dayNumber}}</option>
                                                 </select>
                                                 <select class="form-control" ng-model="selectedHotelForOpt2">
                                                     <option value="">-- Hotel --</option>
-                                                    <option ng-repeat="h in hotels" value="{{h.id}}">{{h.name}} ({{h.location}})</option>
+                                                    <option ng-repeat="h in getHotelsForDay(selectedDayForOpt2)" value="{{h.id}}">{{h.name}} ({{h.location}})</option>
                                                 </select>
                                                 <select class="form-control" ng-model="selectedMealForOpt2">
                                                     <option value="BB">BB</option>

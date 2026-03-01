@@ -667,6 +667,24 @@
             option.hotels.splice(idx, 1);
         };
 
+        // Returns hotels filtered to the locations selected for a given day number.
+        // Falls back to all hotels if the day has no visited locations assigned.
+        vm.getHotelsForDay = function (dayNumber) {
+            if (!dayNumber) return vm.hotels;
+            var day = vm.tourData.days.find(function (d) { return d.dayNumber == dayNumber; });
+            if (!day || !day.visitedLocations || day.visitedLocations.length === 0) return vm.hotels;
+            var locs = day.visitedLocations.map(function (l) { return l.toLowerCase(); });
+            var filtered = vm.hotels.filter(function (h) {
+                if (!h.location) return false;
+                var hLoc = h.location.toLowerCase();
+                return locs.some(function (loc) {
+                    return hLoc.indexOf(loc) !== -1 || loc.indexOf(hLoc) !== -1;
+                });
+            });
+            // If nothing matches (possible location name mismatch) fall back to all hotels
+            return filtered.length > 0 ? filtered : vm.hotels;
+        };
+
         // ===== VEHICLE HELPER =====
         vm.getSelectedVehicle = function () {
             if (!vm.tourData.selectedVehicleId) return null;
